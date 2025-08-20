@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تطبيق قسمي</title>
+<style>
+body { font-family: Arial, sans-serif; background-color: white; margin:0; padding:0; }
+section { display:none; padding:10px; }
+section.active { display:block; }
+.grid { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+.tile { flex:1 1 45%; background:#f0f0f0; padding:14px; cursor:pointer; border-radius:8px; display:flex; align-items:center; }
+.tile .ico { font-size:28px; margin-right:10px; }
+.tile .txt .title { font-weight:bold; }
+.tile .t1 { background:#ffe0e0; }
+.tile .t2 { background:#e0f0ff; }
+.tile .t3 { background:#fff0e0; }
+.tile .t4 { background:#e0ffe0; }
+.card { background:#fafafa; padding:14px; border-radius:8px; margin-bottom:10px; }
+.toolbar { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+button { padding:6px 12px; cursor:pointer; border:none; border-radius:4px; }
+button.btn { background:#007bff; color:#fff; }
+button.btn.alt { background:#6c757d; color:#fff; }
+button.btn.warn { background:#dc3545; color:#fff; }
+button.back { background:#ccc; }
+.note { font-size:12px; color:#555; margin-top:6px; }
+input[type=text], input[type=date], input[type=number], input[type=password], input[type=file] { width:100%; padding:6px; margin-top:4px; margin-bottom:6px; }
+img { max-width:100%; border-radius:6px; margin-top:4px; }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+.spacer { height:20px; }
+</style>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics.js";
+
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyAlA6pculWqw25YMi18VV4eDWGBQXPdriI",
+  authDomain: "mourad-9b3a1.firebaseapp.com",
+  projectId: "mourad-9b3a1",
+  storageBucket: "mourad-9b3a1.firebasestorage.app",
+  messagingSenderId: "769089108679",
+  appId: "1:769089108679:web:f3bdc3d0982b20bfe41ce2",
+  measurementId: "G-1M3PGPR90Q"
+};
+
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// === Navigation ===
+function go(page){
+  document.querySelectorAll('section').forEach(sec=>sec.classList.remove('active'));
+  document.getElementById(page).classList.add('active');
+  if(page==='exams') loadExams();
+  if(page==='exercises') loadExercises();
+  if(page==='timetable') loadTimetable();
+  if(page==='students') loadStudents();
+  if(page==='admin') showAdminGate();
+}
+window.go = go;
+
+// === Exams ===
+async function addExam(event){
+  event.preventDefault();
+  const subject = document.getElementById('examSubject').value;
+  const date = document.getElementById('examDate').value;
+  await addDoc(collection(db,"exams"),{subject,date});
+  document.getElementById('examSubject').value='';
+  document.getElementById('examDate').value='';
+  loadExams();
+}
+window.addExam = addExam;
+
+async function loadExams(){
+  const wrap = document.getElementById('examsTableWrap');
+  wrap.innerHTML='';
+  const snapshot = await getDocs(collection(db,"exams"));
+  snapshot.forEach(docSnap=>{
+    const e = docSnap.data();
+    wrap.innerHTML+=`<div>${e.subject} - ${e.date}</div>`;
+  });
+}
+
+// === Exercises ===
+async function addExercise(event){
+  event.preventDefault();
+  const subject = document.getElementById('exSubject').value;
+  const file = document.getElementById('exImage').files[0];
+  const storageRef = ref(storage,'exercises/'+file.name);
+  await uploadBytes(storageRef,file);
+  const url = await getDownloadURL(storageRef);
+  await addDoc(collection(db,'exercises'),{subject,imageUrl:url});
+  document.getElementById('exSubject').value='';
+  document.getElementById('exImage').value='';
+  loadExercises();
+}
+window.addExercise = addExercise;
+
+async function loadExercises(){
+  const wrap = document.getElementById('exercisesTableWrap');
+  wrap.innerHTML='';
+  const snapshot = await getDocs(collection(db,'exercises'));
+  snapshot.forEach(docSnap=>{
+    const e = docSnap.data();
+    wrap.innerHTML+=`<div>${e.subject}<br><img src="${e.imageUrl}"/></div>`;
+  });
+}
+
+// === Timetable ===
+async function saveTimetable(event){
+  event.preventDefault();
+  const file = document.getElementById('ttImage').files[0];
+  const storageRef = ref(storage,'timetable/timetable.jpg');
+  await uploadBytes(storageRef,file);
+  const url = await getDownloadURL(storageRef);
+  await addDoc(collection(db,'timetable'),{imageUrl:url});
+  document.getElementById('ttImage').value='';
+  loadTimetable();
+}
+window.saveTimetable = saveTimetable;
+
+async function loadTimetable(){
+  const wrap = document.getElementById('timetableWrap');
+  wrap.innerHTML='';
+  const snapshot = await getDocs(collection(db,'timetable'));
+  snapshot.forEach(docSnap=>{
+    const t = docSnap.data();
+    wrap.innerHTML=`<img src="${t.imageUrl}"/>`;
+  });
+}
+
+// === Students ===
+async function addStudent(event){
+  event.preventDefault();
+  const name = document.getElementById('stName').value;
+  const grade = document.getElementById('stGrade').value;
+  const number = document.getElementById('stNumber').value;
+  await addDoc(collection(db,'students'),{name,grade,number});
+  document.getElementById('stName').value='';
+  document.getElementById('stGrade').value='';
+  document.getElementById('stNumber').value='';
+  loadStudents();
+}
+window.addStudent = addStudent;
+
+async function loadStudents(){
+  const wrap = document.getElementById('studentsTableWrap');
+  wrap.innerHTML='';
+  const snapshot = await getDocs(collection(db,'students'));
+  snapshot.forEach(docSnap=>{
+    const s = docSnap.data();
+    wrap.innerHTML+=`<div>${s.name} - ${s.grade} - ${s.number}</div>`;
+  });
+}
+
+// === Admin ===
+function showAdminGate(){
+  document.getElementById('adminGate').style.display='block';
+  document.getElementById('adminPanel').style.display='none';
+}
+
+function tryLogin(){
+  const pass = document.getElementById('adminPass').value;
+  if(pass==='200908'){
+    document.getElementById('adminGate').style.display='none';
+    document.getElementById('adminPanel').style.display='block';
+  } else {
+    alert('كلمة المرور خاطئة');
+  }
+}
+window.tryLogin = tryLogin;
+
+go('home');
+</script>
+</head>
+<body>
+
+<section id="home" class="active">
+  <h1>🎓 مرحبًا بكم في تطبيق قسمي</h1>
+  <p>شاهد مواعيد الفروض والتمارين واستعمال الزمن وأسماء التلاميذ بسهولة.</p>
+
+  <div class="grid">
+    <div class="tile t1" onclick="go('exams')"><div class="ico">📝</div><div class="txt"><div class="title">الفروض</div><div class="desc">مادة + موعد (عرض فقط)</div></div></div>
+    <div class="tile t2" onclick="go('exercises')"><div class="ico">📚</div><div class="txt"><div class="title">التمارين</div><div class="desc">مادة + صورة التمرين</div></div></div>
+    <div class="tile t3" onclick="go('timetable')"><div class="ico">⏰</div><div class="txt"><div class="title">استعمال الزمن</div><div class="desc">صورة يضعها المدير</div></div></div>
+    <div class="tile t4" onclick="go('students')"><div class="ico">👨‍🎓</div><div class="txt"><div class="title">أسماء التلاميذ</div><div class="desc">اسم + نسب + رقم</div></div></div>
+  </div>
+
+  <div style="margin-top:14px" class="note">التلميذ يشاهد فقط. التعديلات من زر الإدارة أسفل الشاشة.</div>
+  <button class="btn" onclick="go('admin')">🔒 الإدارة</button>
+</section>
+
+<!-- Exams -->
+<section id="exams" class="page">
+  <div class="card">
+    <div class="toolbar"><button class="back" onclick="go('home')">← رجوع</button><h2 style="margin:0">الفروض (عرض)</h2></div>
+    <div id="examsTableWrap"></div>
+  </div>
+</section>
+
+<!-- Exercises -->
+<section id="exercises" class="page">
+  <div class="card">
+    <div class="toolbar"><button class="back" onclick="go('home')">← رجوع</button><h2 style="margin:0">التمارين (عرض)</h2></div>
+    <div id="exercisesTableWrap"></div>
+  </div>
+</section>
+
+<!-- Timetable -->
+<section id="timetable" class="page">
+  <div class="card">
+    <div class="toolbar"><button class="back" onclick="go('home')">← رجوع</button><h2 style="margin:0">استعمال الزمن (صورة)</h2></div>
+    <div id="timetableWrap"></div>
+  </div>
+</section>
+
+<!-- Students -->
+<section id="students" class="page">
+  <div class="card">
+    <div class="toolbar"><button class="back" onclick="go('home')">← رجوع</button><h2 style="margin:0">أسماء التلاميذ (عرض)</h2></div>
+    <div id="studentsTableWrap"></div>
+  </div>
+</section>
+
+<!-- Admin -->
+<section id="admin" class="page admin-section">
+  <div class="card">
+    <div class="toolbar"><button class="back" onclick="go('home')">← رجوع</button><h2 style="margin:0">الإدارة</h2></div>
+
+    <div id="adminGate" style="display:none">
+      <p>أدخل كلمة المرور للدخول إلى الإدارة.</p>
+      <input id="adminPass" type="password" placeholder="كلمة المرور (200908)" />
+      <div style="display:flex;gap:10px;margin-top:10px"><button class="btn" onclick="tryLogin()">دخول</button></div>
+      <div class="note" style="margin-top:8px">التلميذ لا يمكنه التعديل.</div>
+    </div>
+
+    <div id="adminPanel" style="display:none">
+      <div class="grid-2">
+        <!-- Exams -->
+        <div class="card" style="padding:14px">
+          <h3>إضافة فرض</h3>
+          <form onsubmit="addExam(event)">
+            <label>اسم المادة</label><input id="examSubject" type="text" required placeholder="مثال: رياضيات" />
+            <label>تاريخ الفرض</label><input id="examDate" type="date" required />
+            <button class="btn">إضافة للائحة</button>
+          </form>
+        </div>
+        <!-- Exercises -->
+        <div class="card" style="padding:14px">
+          <h3>إضافة تمرين</h3>
+          <form onsubmit="addExercise(event)">
+            <label>اسم المادة</label><input id="exSubject" type="text" required placeholder="مثال: علوم الحياة" />
+            <label>صورة التمرين</label><input id="exImage" type="file" accept="image/*" required />
+            <button class="btn">إضافة للائحة</button>
+          </form>
+        </div>
+        <!-- Timetable -->
+        <div class="card" style="padding:14px">
+          <h3>استعمال الزمن</h3>
+          <form onsubmit="saveTimetable(event)">
+            <label>ارفع صورة استعمال الزمن</label><input id="ttImage" type="file" accept="image/*" required />
+            <button class="btn">حفظ الصورة</button>
+          </form>
+        </div>
+        <!-- Students -->
+        <div class="card" style="padding:14px">
+          <h3>إضافة تلميذ</h3>
+          <form onsubmit="addStudent(event)">
+            <label>اسم التلميذ</label><input id="stName" type="text" required placeholder="مثال: أحمد علي" />
+            <label>نِسَب</label><input id="stGrade" type="text" required placeholder="مثال: 16/20" />
+            <label>رقم التلميذ</label><input id="stNumber" type="number" required placeholder="مثال: 12" />
+            <button class="btn">إضافة للائحة</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="spacer"></div>
+</body>
+</html>
